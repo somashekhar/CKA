@@ -1,0 +1,4 @@
+# kubectl logs <pod name>
+# kubectl logs -f <pod name>
+
+# kubectl logs <podname> <containername>

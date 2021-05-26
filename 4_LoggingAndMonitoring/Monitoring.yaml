@@ -1,0 +1,11 @@
+# Monitoring can be done by below solutions
+# Heapster, Metrics server, Prometheus, Elastic Stack, DataDog, dynatrace
+
+# Metrics Server:
+#   Kubelet, cAdvisor
+#   minikube addons enable metrics-server
+#   git clone https://github.com/kubernetes-sigs/metrics-server or 
+#   git clone https://github.com/kodekloudhub/kubernetes-metrics-server.git and run kubectl create -f .
+
+# kubectl top node 
+# kubectl top pod
