@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+spec:
+  containers:
+    - image: nginx
+      name: nginx-container
+      ports:
+        - containersPort: 8080
+      resources:
+        requests:
+          memory: "1Gi"  # 1 Gibibyte or 1,073,741,824 bytes
+          cpu: 1         
+        limits:
+          memory: "2Gi" # by default 1vCPU and 512Mi is the limit per container
+          cpu: 2

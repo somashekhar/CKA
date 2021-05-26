@@ -1,0 +1,36 @@
+# Add label to the pod and through kubectl filter for that pod using selector
+# Kubectl get pods --selector app=App1
+
+# Service, replica set uses labels of pods under selectors 
+
+# Annotations are used to provide extra information
+
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: myapp-replicaset
+  labels:
+    function: front-end
+    app: myapp
+  annotations:
+    buildVersion: 1.0
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      name: myapp-pod
+      labels:
+        app: myapp
+        function: front-end
+    spec:
+      containers:
+        - name: nginx-container
+          image: nginx
+
+
+
+
+

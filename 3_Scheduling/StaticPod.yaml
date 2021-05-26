@@ -1,0 +1,23 @@
+# place the pod definition in /etc/kubernetes/manifests
+# set this path in kubelet.service
+# --pod-manifest-path=/etc/kubernetes/manifests or 
+
+# --config=kubeconfig.yaml in kubelet.service and then inside this file
+# staticPodPath= /etc/kubernetes/manifests
+
+# ps -ef | grep kubelet
+
+# Use docker commands since there is no CLI utility
+# docker ps 
+
+
+# You can identify the static pods using node name. The pod names end by node name.
+
+
+
+
+
+
+
+
+
