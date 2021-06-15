@@ -1,3 +1,11 @@
+alias shortName="your custom command here"
+alias k="kubectl"
+alias kg="kubectl get"
+alias kde="kubectl describe"
+alias ke="kubectl edit"
+alias ka="kubectl apply"
+alias kdl="kubectl delete"
+
 ## Pod
 # Create
 kubectl create -f pod.yml
