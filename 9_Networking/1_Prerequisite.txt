@@ -1,0 +1,84 @@
+Commands: On Linux systems
+  Get details of system interfaces:
+    ip link
+    ip addr
+    ip addr add 192.168.1.10/24 dev etho
+    ping 192.168.1.10
+
+  Add routes to the system:
+    ip route
+    ip route add 192.168.1.10/24 via 192.168.1.1
+    ip route add default via 192.168.1.1            (default route to connect to any ips outside its network)
+    ip route add 0.0.0.0 via 192.168.1.1            (default and 0.0.0.0 are same)
+
+  Make system as router:
+    cat /proc/sys/net/ipv4/ip_forward
+    echo 1 > /proc/sys/net/ipv4/ip_forward
+
+    /etc/sysctl.conf
+        net.ipv4.ip_forward = 1
+
+switch  : connects two systems
+router  : connects two networks
+gateway : entry and exit point for a network
+
+
+/*********************************************************************************/
+DNS:
+
+  Add a destination at host file:
+    hostname
+    cat /etc/hosts
+        192.168.1.11    db
+        192.168.1.11    google.com
+    ping db
+    ssh db
+    curl http://www.google.com
+
+  DNS Name server replaced the limitations of hosts file.
+    cat /etc/resolv.conf
+        nameserver  192.168.1.100
+        nameserver  8.8.8.8
+        search      mycompany.com
+Tools:
+    nslookup    [does not find in local ssystem]
+    dig 
+
+/*********************************************************************************/   
+Namespaces:
+    Process Namespaces
+        ps aux                          [list processes]
+    Network Namespaces
+        ip netns                        [list namespaces]
+        ip netns add red                [add a red namespace]
+        ip netns add blue
+
+        ip netns exec red ip link or    [find an interface inside namespace]
+        ip -n red link
+
+        ip netns exec red arp           [find arp inside the red namespace]
+
+    Connecting two Namespaces:
+        ip link add veth-red type veth peer name veth-blue      [add link]
+        ip -n  red link del veth-red                            [delete link, if one is deleted then other will be, since they will be interconnected]
+        ip link set veth-red netns red                          [add interface to namespace]
+        ip link set veth-blue netns blue
+        ip -n red addr add 192.168.15.1 dev veth-red            [add an ip to namespace]
+        ip -n blue addr add 192.168.15.2 dev veth-blue
+        ip -n red link set veth-red up                          [get links up]
+        ip -n blue link set veth-blue up
+        ip netns exec red ping 192.168.15.2                     [ping interfaces]
+        ip netns exec red arp                                   [arp table in red namespace]
+        arp                                                     [arp table of host]
+
+Note: To create a virtual switch in a Host we can use Linux Bridge, Open vSwitch
+
+    Use Linux Bridge to create virtual switch:
+        ip link add v-net-0 type bridge                         [create a bridge]
+        ip link set dev v-net-0 up                              [bring up bridge interface]
+        ip link add veth-red type veth peer name veth-red-br    [create a link to bridge from namespace]
+        ip link add veth-blue type veth peer name veth-blue-br  [create a link to bridge from namespace]
+        ip link set veth-red netns red                          [attach namespace to link]
+        ip link set veth-red-br master v-net-0                  [attach ]
+
+
