@@ -1,0 +1,18 @@
+# If no specified PV then PVC will be in pending state
+# If multiple PVs then use labels to attach PVC to a PV
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: myclaim
+spec:
+  accessMode:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Mi
+
+# kubectl create -f pvc-definition.yamll
+# kubectl get persistentvolumeclaim
+
+

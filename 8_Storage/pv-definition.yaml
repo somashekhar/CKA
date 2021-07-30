@@ -1,0 +1,23 @@
+# Pod --> Persistent Volume Claim (PVC) --> Persistent Volumes (PVs)
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-volOne
+spec:
+  accessModes:
+    - ReadWriteOnce   # ReadOnlyMany, ReadWriteOnce, ReadWriteMany
+  capacity:
+    storage: 1Gi
+  hostPath:
+    path: /tmp/data
+  awsElasticBlockStore:
+      volumeID: <volume-id>
+      fsType: ext4
+
+# kubectl create -f pv-definition.yaml    
+# kubectl get persistentvolume
+
+# persistentVolumeReclaimPolicy: Retain   # Delete, Recycle
+# When a PVC for which PV is bound it delete, what happens to the underlying PV.
+
