@@ -1,0 +1,28 @@
+Ingress:
+    Layer 7 loadbalancer built in to k8s cluster that can be configured using k8s primitives just like any other objects in k8s.
+    We would be still needing a load balancer to expose our services to outside world.
+
+
+Ingress has:
+    Ingress Controller  [NGINX, HAPROXY, TRAEFIK]
+    Ingress Resources    
+
+Ingress Controller:
+    NGINX, Contour, HAPROXY, treakfik, Istio.
+    GCP HTTP(S) Load balancer[GCE] is presently supported and maintained by kubernetes project.
+
+    NGINX ingress Controller is deployed as a Deployment.
+
+Ingress Resource:
+
+
+
+Commands:
+  kubectl create -f ingress-wear.yaml
+  kubectl get ingress
+
+  kubectl -n app-space get ingress ingress-wear-watch -o yaml > ingress.yaml
+  kubectl -n app-space delete ingress ingress-wear-watch
+  kubectl apply -f ingress.yaml
+
+  kubectl get deployments.apps,svc --all-namespaces

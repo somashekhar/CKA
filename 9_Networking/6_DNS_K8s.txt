@@ -1,0 +1,42 @@
+  Hostname    Namespace       Type        Root            IP Address
+web-service     apps          svc       cluster.local   10.107.37.188
+10-244-2-5      apps          pod       cluster.local   10.244.2.5 
+
+curl http://web-service.apps.svc.cluster.local 
+curl http://10-244-2-5.pod.svc.cluster.local
+
+
+CoreDNS:
+  It is deployed as a pod in kube-system namespace. It is used by default as a DNS service in k8s.
+
+  cat /etc/coredns/Corefile
+
+  kubectl get service -n kube-system 
+
+When pods are created in k8s cluster, k8s takes care to configure nameserver(CoreDNS service running on kube-system) in them through kubelet.
+Pods reach outside internet through this specific coredns service.
+
+cat /var/lib/kubelet/config.yaml
+cat /etc/resolv.conf
+
+We can reach to service through specifying,(but for pods you need to give fqdn)
+host web-service
+
+
+Where is the configuration file located for configuring the coreDNS service?
+  kubectl describe deployments coredns -n kube-system
+    /etc/coredns/Corefile
+
+How is the Corefile passed in to the CoreDNS POD ?
+Configured as a configmap object.
+
+What is the name of the ConfigMap object created for Corefile?
+coredns
+
+What is the root domain/zone configured for this kubernetes cluster?
+  kubectl describe cm coredns -n kube-system
+    cluster.local
+
+
+
+

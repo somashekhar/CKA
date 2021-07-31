@@ -1,0 +1,42 @@
+Container Networking Interface [CNI]:
+    Is a set of standards that define how programs should be developed to solve networking challenges in a container run time environment.
+    The programs are reffered to as plugins.
+
+    https://github.com/containernetworking/cni
+
+CNI Responsibilities:
+1. Container Runtime must create network namespace.
+2. Identify the network the container must attach to.
+3. Container Runtime to invoke Network Plugin(bridge) when container is ADDed.
+4. Container Runtime to invoke Network Plugin(bridge) when container is DELeted.
+5. JSON format of the Network Configuration.
+
+Plugin must have:
+1. Must support command line arguments ADD/DEL/CHECK
+2. Must support parameters container id, network ns etc...
+3. Must manage IP Address assignment to PODs
+4. Must return results in a specific format
+
+Ex: weaveworks, flannel, cilium , VMWare NSX, calico, infoblox
+
+Note: Docker does not implement CNI but CNM[Container Network Model]
+
+/-------------------------------------------------------------------------------------------------/
+PORTS:
+    6443    kube-api
+    2379    ETCD
+    2380    ETCD clients
+    10250   kubelet
+    10251   kube-scheduler
+    10252   kube-controller-manager
+
+    30000-32767 Services on worker node
+        
+Commands:    
+ip route
+ip link 
+ipconfig
+ps aux 
+netstat -natulp | grep kube-scheduler
+
+

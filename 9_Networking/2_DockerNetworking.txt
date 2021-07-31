@@ -1,0 +1,17 @@
+Three types of networks:
+    docker run --network none nginx     [none and wont be reachable to outside]
+    docker run --network host nginx     [host networking, only one port can be used by one container]
+    docker run nginx                    [will use bridge network, by default 172.17.0.o network will be created]
+
+Bridge network:
+    docker network ls
+    ip link                             [docker0 network is bridge network created by docker]
+    ip addr
+    ip netns
+
+    docker inspect <image>              [to get details of namespace a container is in]
+    
+docker run -p 8080:80 nginx             [port mapping]
+/*********************************************************************************/
+iptables -nvL -t nat 
+iptables -t nat -A PREROUTING -j DNAT --dport 8080 --to-destination 80

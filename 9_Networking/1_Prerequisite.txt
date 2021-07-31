@@ -79,6 +79,27 @@ Note: To create a virtual switch in a Host we can use Linux Bridge, Open vSwitch
         ip link add veth-red type veth peer name veth-red-br    [create a link to bridge from namespace]
         ip link add veth-blue type veth peer name veth-blue-br  [create a link to bridge from namespace]
         ip link set veth-red netns red                          [attach namespace to link]
-        ip link set veth-red-br master v-net-0                  [attach ]
+        ip link set veth-red-br master v-net-0                  [attach link to vswitch]
+        ip -n red addr add 192.168.15.1 dev veth-red
+        ip -n blue addr add 192.168.15.2 dev veth-blue
+        ip -n red link set veth-red up
+        ip -n blue link set veth-blue up
+
+Note: Host cannot connect to the namespaces by default. Add an IP to vSwitch created to reach it.
+    ip addr add 192.168.15.5/24 dev v-net-0
+    ping 192.168.15.1                           [ping from host]
+
+    iptables -t nat -A POSTROUTING -s 192.168.15.0/24 -j MASQUERADE     [making host a NAT]
+    ip netns exec blue ip route add default via 192.168.15.5            (default route to connect to any ips outside its network)
 
 
+/*********************************************************************************/   
+Network Namespaces/docker/k8s:
+    1. Create Network Namespace
+    2. Create Bridge Network/Interface
+    3. Create VETH Pairs (Pipe, Virtual Cable)
+    4. Attach VETH to Namespace
+    5. Attach Other VETH to Bridge
+    6. Assign IP Addresses
+    7. Bring the Interface up
+    8. Enable NAT - IP Masquerade

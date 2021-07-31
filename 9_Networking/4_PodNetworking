@@ -1,0 +1,64 @@
+Pod Networking:
+
+  Networking Model:
+    Every Pod should have an IP Address
+    Every Pod should be able to communicate with every other Pod in the same node
+    Every Pod should be able to communicate with every other Pod on other nodes without NAT
+
+  Steps:
+    1. Nodes have an IP. They are connected each other through a switch.
+    2. Create a bridge on each node/host and bring them up.
+        ip link add v-net-0 type bridge
+        ip link set dev v-net-0 up
+    3. Assign a subnet to each brige on host and set ip addresses.
+        ip addr add 10.244.1.1/24 dev v-net-0
+    4. Assign an IP when each container gets created.
+        - Create a pipe/virtual network cable
+            ip link add ...
+        - Attch one end of it to container and another to bridge
+            ip link set ...
+        - Assign IP addresses and add route to default gateway
+            ip -n <namespace> addr add ...
+            ip -n <namespace> route add ...            
+        - Bring up the Interface
+            ip -n <namespace> link set ...
+    5. Add a route to the container in node2 at node1  
+        ip route add 10.244.2.2 via 192.168.1.12
+    6. Since step 5 is tedious we can substitute it with adding a route at router
+            Network         Gateway
+        10.244.1.0/24    192.168.1.11
+        10.244.2.0/24    192.168.1.12
+        10.244.3.0/24    192.168.1.13
+    7. This would make an network 10.244.0.0/16 accross the nodes    
+
+/------------------------------------------------------------------------------------------/
+CNI plugin will be invoked by kubelet which is responsible for creating containers.
+  kubelet.service
+    ExecStart=/usr/local/bin/kubelet \\
+      --config=/var/lib/kubelet/kubelet-config.yaml \\
+      --container-runtime=remote \\
+      --container-runtime-endpoint=unix:///var/run/containerd/containerd.sock \\
+      --image-pull-progress-deadline=2m \\
+      --kubeconfig=/var/lib/kubelet/kubeconfig \\
+      --network-plugin=cni \\
+      --cni-bin-dir=/opt/cni/bin \\
+      --cni-conf-dir=/etc/cni/net.d \\
+      --register-node=true \\
+      --v=2 
+
+    ps -aux | grep kubelet
+
+Note: On host node 
+  ls /opt/cni/bin   [list of all supported plugin binries]
+  ls /etc/cni/net.d [list of configuration files]
+
+/------------------------------------------------------------------------------------------/
+Weaveworks CNI plugin: https://www.weave.works/docs/net/latest/kubernetes/kube-addon/
+
+    kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
+    daemonset.extensions/weave-net created
+
+    kubectl get pods -n kube-system 
+    kubectl logs weave-net-5gcmb weave -n kube-system
+
+    kubectl -n kube-system get pods 
