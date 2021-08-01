@@ -1,0 +1,79 @@
+We can have multiple Masters:
+  1. configure a load balancer(NGINX) and direct the traffic to kube-apiserver since kube-apiserver can work in active-active mode.
+  2. Controller Manager and Scheduler cannot have a A-A mode. If multiple run in parallel they would create resource duplication.
+     The leader election process would help to create master and standby. Kube-controller-manager Endpoint would help in this. 
+     kube-controller-manager --leader-elect true [other options]
+                             --leader-elect-lease-duration 15s
+                             --leader-elect-renew-deadline 10s
+                             --leader-elect-retry-period 2s
+  3. ETCD can be configured in stacked topology where it is in GM.
+        Easier to Setup
+        Easier to manage
+        Fewer Serves
+        Risk during failures
+  4. ETCD can be configured in External ETCD Topology where there are independent nodes for it.
+        Less Risky
+        Harder to Setup
+        More Servers
+
+        cat /etc/systemd/system/kube-apiserver.service
+        Need to configure where ETCD servers are there in this.
+
+/----------------------------------------------------------------------------------------------------------------------------------------/
+ETCD in HA:
+    What is ETCD ?
+        Is a distributed reliable key-value store that is Simple Secure & Fast.
+    What is a Key-Value Store ?
+    How to get started quickly ?
+    How to operate ETCD ?
+    What is a distributed system ?
+    How ETCD Operates 
+    RAFT Protocol
+    Best practices on number of nodes
+
+Etcd  in all nodes can get read operations done through them.
+A leader is elected for write operation internally and a write operation is forwarded to it internally. 
+The leader sends accross the written data for sync to other nodes.
+A write is said to be completed if leader gets consent from other members.
+Leader election is done by RAFT Protocol.
+
+Quorum is the minimum number of nodes that must be available for the cluster to function properly or make a sucessfull write.
+Quorum = N/2 + 1
+
+Note:
+    It is advised to have odd number of nodes for a cluster. This can avoid cluster failing due to equal number of nodes in 2 different network partitions.
+    If there are 6 nodes. According to quorum we need 4 nodes to function in a healthy cluster. When network partition occour to have 3 nodes each in a partition we end up having a failed cluster.
+
+Getting Started:
+    wget -q --https-only \
+        "https://github.com/coreos/etcd/releases/download/v3.3.9/etcd-v3.3.9-linux-amd64.tar.gz"
+    tar -xvf etcd-v3.3.9-linux-amd64.tar.gz
+    mv etcd-v3.3.9-linux-amd64/etcd* /usr/local/bin/
+    mkdir -p /etc/etcd /var/lib/etcd
+    cp ca.pem kubernetes-key.pem kubernetes.pem /etc/etcd/
+
+    etcd.service
+    ExecStart=/usr/local/bin/etcd \\
+    --name ${ETCD_NAME} \\
+    --cert-file=/etc/etcd/kubernetes.pem \\
+    --key-file=/etc/etcd/kubernetes-key.pem \\
+    --peer-cert-file=/etc/etcd/kubernetes.pem \\
+    --peer-key-file=/etc/etcd/kubernetes-key.pem \\
+    --trusted-ca-file=/etc/etcd/ca.pem \\
+    --peer-trusted-ca-file=/etc/etcd/ca.pem \\
+    --peer-client-cert-auth \\
+    --client-cert-auth \\
+    --initial-advertise-peer-urls https://${INTERNAL_IP}:2380 \\
+    --listen-peer-urls https://${INTERNAL_IP}:2380 \\
+    --listen-client-urls https://${INTERNAL_IP}:2379,https://127.0.0.1:2379 \\
+    --advertise-client-urls https://${INTERNAL_IP}:2379 \\
+    --initial-cluster-token etcd-cluster-0 \\
+    --initial-cluster controller-0=https://${CONTROLLER0_IP}:2380,controller-1=https://${CONTROLLER1_IP}:2380 \\
+    --initial-cluster-state new \\
+    --data-dir=/var/lib/etcd   
+
+ETCDCTL:
+    export ETCDCTL_API=3
+    etcdctl put name john
+    etcdctl get name
+    etcdctl get / --prefix --keys-only

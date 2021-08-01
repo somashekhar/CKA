@@ -1,0 +1,21 @@
+Master Components:
+    kube-apiserver
+    node-controller
+    replica-controller
+    etcd
+
+Worker Components:
+    kubelet
+    kube-proxy
+    Container Runtime
+/--------------------------------------------/
+Steps using kubeadm:
+    1. Set up 3 VMs. Designate one as master and others as worker.
+    2. Install container runtime on all the nodes. [docker]
+    3. Install kubeadm tool on all the nodes.
+    4. Initialize master server. 
+    5. Make sure Pod Networking is in place. [flannel, weaveworks]
+    6. Join worker nodes to master.
+
+    
+    
