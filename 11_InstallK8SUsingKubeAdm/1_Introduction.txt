@@ -16,6 +16,4 @@ Steps using kubeadm:
     4. Initialize master server. 
     5. Make sure Pod Networking is in place. [flannel, weaveworks]
     6. Join worker nodes to master.
-
-    
     
