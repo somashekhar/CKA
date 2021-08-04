@@ -1,0 +1,4 @@
+- Application failure
+- Worker Node failures
+- COntrol Plane failure
+- Networking
