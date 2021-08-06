@@ -1,3 +1,11 @@
+When designing make sure to take care of,
+    1. Master components
+        kube-apiserver, etcd, kube-scheduler, kube-controller-manager, container runtime, kubectl
+    2. Woeker components
+        kubelet, kubeproxy, container runtime
+    3. Addons
+        CoreDNS, CNI Plugin
+
 ## Education:
     * Minikube
     * Single Node cluster with kubeadm/GCP/AWS

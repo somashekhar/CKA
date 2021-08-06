@@ -4,6 +4,8 @@
     * replica-controller
     * etcd
 
+    kube-scheduler, kube-controller-manager
+    
 # Worker Components
     * kubelet
     * kube-proxy

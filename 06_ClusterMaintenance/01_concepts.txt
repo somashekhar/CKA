@@ -1,0 +1,155 @@
+# Cluster Maintenance
+    * Cluster upgrade process
+    * Operating system upgrades
+    * Backup and Restore Methodologies 
+
+
+# Operating System Upgrade
+1. If node goes down for more than 5 min then pods on that node are terminated.
+   Depending on the configuration and kind of workload pod comes up on other nodes.
+
+2. The time it waits for pod to come up online is called "Pod eviction timeout"
+   kube-controller-manager --pod-eviction-timeout=5m0s
+
+3. If node comes back after 5 min then there will be no previous replica pods scheduled on it. New pods which come up will get scheduled.
+   If you think node comes back within 5 min then an upgrade can be done without moving the workload.
+
+4. Use node drain concept to move pods from that node. Technically pods gracefully terminated and created on other nodes.
+   Node is made unschedulable. You need to manually make it schedulable.
+    kubectl drain node-1
+    kubectl uncordon node-1
+    kubectl drain node-1 --ignore-daemonsets
+    kubectl drain node-1 --ignore-daemonsets --force
+
+   Make a node unschedulable and schedulable respectively:  
+    kubectl cordon node-1
+    kubectl uncordon node-1     
+
+    kubectl describe node master | grep taint
+
+
+# Kubernetes Releases
+  v1.11.3
+  Major Minor Patch
+  
+  Minor : features, functionalities
+  Patch : bug fixes
+  
+  Each components needs to be checked for compatibility matrix:
+    kube-apiserver          v1.13.4
+    controller-manager      v1.13.4
+    kube-scheduler          v1.13.4
+    kubelet                 v1.13.4
+    kube-proxy              v1.13.4
+    kubectl                 v1.13.4
+
+    etcd-cluster            v3.2.18
+    CoreDNS                 v1.1.3
+
+    # Ref:
+    https://kubernetes.io/docs/concepts/overview/kubernetes-api/
+    https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md
+    https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api_changes.md
+    
+
+# Cluster upgrade process
+                kube-apiserver
+    controller-manager      kube-scheduler              kubectl
+        kubelet             kube-proxy
+
+  Core components of k8s can be in different versions. But below points should be met,
+    1. kube-apiserver version should be the latest(X). No other components can be later than it.
+    2. controller-manager and kube-scheduler can be at (X, X-1)
+    3. kubelet and kube-proxy can be at (X, X-1, X-2)
+    4. kubectl can be at (X+1, X, X-1)
+
+  How many versions of k8s will be supported ?
+    Recent 3 minor version.
+
+  What is recommended upgrade process ?
+    Immidiate minor version
+
+  How to upgrade the cluster ?
+    Depending on where and how the cluster is deployed we can use the apt cloud service provider and tools to do it.
+
+  # Upgrading cluster using kubeadm tool
+  Done in 2 steps:
+    1. Upgrade master nodes 
+    2. Upgrade worker nodes
+
+    When master node is down all the master node components will be down and we cannot do management functionalities.
+    But this does not effect the workloads running on worker nodes. But if something fails then it would not be created/corrected.
+
+    We can upgrade the worker nodes,
+    1. All worker nodes at once. All services will go down. Usually done by down time.
+    2. One node at a time.
+    3. Add new nodes to cluster. Move workload to new nodes and decommission old nodes.
+
+    # Commands
+    kubectl upgrade plan
+    apt-get upgrade -y kubeadm=1.12.0-00
+    kubeadm upgrade apply v1.12.0
+    apt-get upgrade -y kubelet=1.12.0-00
+    systemctl restart kubelet
+    kubectl get nodes
+
+    kubectl drain node-1
+    apt-get upgrade -y kubeadm=1.12.0-00
+    apt-get upgrade -y kubelet=1.12.0-00
+    kubeadm upgrade node config --kubelet-version v1.12.0
+    systemctl restart kubelet
+    kubectl uncordon node-1
+
+    # Reference:
+    https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/
+    https://kubernetes.io/docs/tasks/administer-cluster/configure-upgrade-etcd/#backing-up-an-etcd-cluster
+
+
+# Backup and Restore Methods
+  The components to be backed up are 
+  1. Resource configuration
+  2. ETCD cluster and 
+  3. Persistent Volumes
+
+
+  How to take back up of Resource configuration ?
+    1. store in GitHub and maintain.
+    2. Use command line or tools to take back up 
+        kubectl get all --all-namespaces -o yaml > all-deploy-services.yaml
+        or 
+        VELERO tool from HeptIO
+
+  How to take back up from ETCD ?
+    1. Take the back from --data-dir=/var/lib/etcd         
+    2. Take backup using ETCD Commands
+        ETCDCTL_API=3 etcdctl snapshot save snapshot.db
+        ETCDCTL_API=3 etcdctl snapshot status snapshot.db
+
+  How to restore ETCD cluster from backup ?      
+    1. Stop the apiserver 
+    2. ETCDCTL_API=3 etcdctl snapshot restore snapshot.db --data-dir /var/lib/etcd-from-backup 
+    3. Configure etcd service to use new data directory.
+        --data-dir=/var/lib/etcd-from-backup
+    4. systemctl daemon-reload
+       service etcd restart
+       service kube-apiserver start
+  
+  Get the certificates from etcd pods and put them in backup command.     
+  kubectl -n kube-system describe pod etcd-controlplane
+
+  Steps to backup and restore from ETCD:
+    1. Take a snapshot
+      ETCDCTL_API=3 etcdctl \
+        --endpoints https://127.0.0.1:2379 \
+        --cert=/etc/kubernetes/pki/etcd/server.crt \
+        --key=/etc/kubernetes/pki/etcd/server.key \
+        --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+        snapshot save snapshotdb
+
+      ETCDCTL_API=3 etcdctl snapshot status /opt/snapshot-pre-boot.db  
+    
+    2. Restore the snapshot to a new directory
+        ETCDCTL_API=3 etcdctl snapshot restore /opt/snapshot-pre-boot.db --data-dir=/var/lib/etcd-from-backup
+    
+    3. Configure etcd for this new location
+        cd /etc/kubernetes/manifests

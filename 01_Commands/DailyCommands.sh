@@ -16,7 +16,7 @@ kubectl run nginx --image=nginx --dry-run=client -o yaml > pod.yaml
 
 
 # Get
-
+kubectl get pods -A
 
 # Update
 
