@@ -1,0 +1,529 @@
+# Security:
+  Kubernetes Security Primitives
+  Authentication
+  TLS Certificates for Cluster Components
+  Secure Persistent Key Value Store
+  Authorization
+  Images Securely
+  Security Contexts
+  Network Policies
+
+|----------------------------------------------------------------------------------------------------------------------------|  
+# Security Primitives
+  # Secure Hosts
+    Password based authentication disables
+    SSH Key based authentication
+  # Secure kube-apiserver
+    Who can access the cluster ?
+        Files : Username and Password
+        Files : Username and tokens
+        Certificates
+        External Authentication Providers - LDAP
+        Service Accounts
+    
+    What they can do ?
+        RBAC Authorization
+        ABAC Authorization
+        Node Authorization
+        Webhook Mode
+  # Secure cluster components communication
+    TLS Certificates is used for internal communication between 
+    kube-apiserver,etcd, kube scheduler, kube controller manager, kubelet and kube proxy.
+  # Network Policies
+    For pod to pod communication  
+
+|----------------------------------------------------------------------------------------------------------------------------|
+# Authentication
+  The cluster can be accessed by,
+    - Admins
+    - Developers
+    - End Users for accessing application
+    - 3rd party applications(Bots) for integrating with APIs. [Done by service accounts]
+
+  In this certificate we need to take care of 1 and 2. They can be grouped under,
+    - Users             (Admins and Developers)
+
+    All user access is managed by the apiserver. Using kubectl or https://kube-server-ip:6443/.
+    Apiserver will authenticate the users and process them.
+
+  Auth Mechanisms: 
+    Static Password File    
+    Static Token File
+    Certificates
+    Identity Services  
+
+  Auth Mechanisms - Basic: [Static Password File]
+    1. Write a file with username and passwords in it and feed it to apiserver.
+        user-details.csv
+            password123,user1,u001,group1
+    2. At kube-apiserver sepecify the username and Password file as an input at configuration.
+    3. kube-apiserver.service
+        --basic-auth-file=user-details.csv    
+    4. Restart the apiserver
+    5. If you have used kubeadm tool to install and configure the API server then it will take care to restart the service.
+       Make necessary changes at /etc/kubernetes/manifests/kube-apiserver.yaml
+        spec:
+            containers:
+            - command:
+              - --basic-auth-file=user-details.csv
+
+    How to access the cluster ?
+        curl -v -k https://master-node-ip:6443/api/v1/pods -u "user1:password123"              
+
+  Auth Mechanisms - Basic: [Static Token File]
+    1. Write a file with token, username and passwords in it and feed it to apiserver.
+        user-token-details.csv
+        q1bKLFOyUiosTfawzA93TzZIDzH2TNa2SMm0,user1,u001,group1
+    2. At kube-apiserver sepecify the Static token file as an input at configuration.
+    3. kube-apiserver.service
+        --token-auth-file=user-token-details.csv    
+    4. Restart the apiserver
+    5. If you have used kubeadm tool to install and configure the API server then it will take care to restart the service.
+       Make necessary changes at /etc/kubernetes/manifests/kube-apiserver.yaml
+        spec:
+            containers:
+            - command:
+              - --token-auth-file=user-token-details.csv
+
+    How to access the cluster ?
+        curl -v -k https://master-node-ip:6443/api/v1/pods --header "Authorization: Bearer q1bKLFOyUiosTfawzA93TzZIDzH2TNa2SMm0"             
+
+  Note:
+    1. This is not a recommended authentication mechanism
+    2. Consider volume mount while providing the auth file in a kubeadm setup
+    3. Setup Role Based Authorization for the new users
+
+|------------------------------------------------------------------------------------------------------------------------------|
+# Pre-Req Lectures
+  TLS Basics
+  View Certificate Details
+  Generate Certificates
+
+    A certificate is used to guarantee 2 parties while transacting.
+
+    # Use keys to connect to server
+    1. Generate the ssh key pairs using below command. It generates public and private keys.
+        > ssh-keygen
+            id_rsa id_rsa.pub
+    2. Copy your public key into the server at ~/.ssh/authorized_keys
+    3. Use your private key and access the server.
+        > ssh -i id_rsa user1@server1
+    4. When you want to connect to multiple servers then copy the same public key to all of them and use private key to access them.      
+    
+
+    # Scenario:
+    When user connects to server he encrypts the content of the message using a key.
+    The data is decrypted using the same key used for encryption.
+
+    - Symmetric Encryption: The encryption key is sent along with the message sent.
+    - Asymetric Encryption: Encrypt the message using public key of server and server uses its private key to descrypt it.
+    
+    A openssl public and private keys are generated at the server. Server shares its public key.
+    User encrypts the symmetric key with servers openssl public key and sends it to server.
+    Server decrypts the message with symmetric key using its private key and gets it.
+    Since symmetric key is available only to user and server the data exchange can happen securely.
+
+    With combination of Symmetric and Asymetric encryption we are able to securely communicate with server.
+
+
+    # How to generate openssl key pairs on server ?
+    > openssl genrsa -out my-bank.key 1024
+        my-bank.key
+    > openssl rsa -in my-bank.key -pubout > mybank.pem
+        my-bank.key mybank.pem
+
+
+    # How to validate the public key from Server ?
+    You get a certificate for the public key. Look at who signed the certificate.
+
+    # Who are Certificate Authority(CA) ?
+    The organization who signs the certificates.
+        Ex: Symantec, DigiSign, GlobalSign, digicert
+
+    # How to get your public key signed by an Authority ?
+    1. Raise a Certificate Signing Request[CSR] 
+        Use the key generated using openssl and domain name of your system to raise a request.
+        > openssl req -new -key my-bank.key -out my-bank.csr -subj "/C=US/ST=CA/O-MyOrg,Inc/.CN=my-bank.com"
+            my-bank.key my-bank.csr
+    2. Certification Authority validate the information.
+    3. Sign and Send Certificate to you.
+    
+    # How to validate if CA is legitimate ?
+    CA themselves have a public and private key pairs. Browser has inbuilt public keys of all CAs.
+    Browser -> Settings -> Certificates
+
+    # What are public and private certificate authorities ?
+    The authorities which sign our publicly available website are public.
+    The internal websites of organization for which we need a signing authority are called private.
+
+    # What is Public Key Infrastructure [PKI] ?
+    The whole Infrastructure including the CA, servers, people and the process of generating and distributing maintaining digital certificates.
+
+    # Note:
+    1. A message encrypted using private key can only be decrypted using public key and visa versa.
+    2. Usually the public keys are named as *.crt and *.pem 
+        server.crt, server.pem, client.crt and client.pem
+
+       Private keys are named as *.key or *-key.pem 
+        server.key, server-key.pem, client.key and client-key.pem
+
+|----------------------------------------------------------------------------------------------------------------------------|
+# Certificates:
+    Root Certificates   :   Public and Private certificates of CA 
+    Server Certificates :   Public and Private certificates of Server which are used to verify its authenticity by CA.
+    Client Certificates :   Public and Private certificates of Client which are used to verify its authenticity by CA.
+
+    *.crt   *.pem       : public keys
+    *.key   *-key.pem   : private keys
+
+  Client and Server certificates will be generated for all the communication in side the k8s cluster.
+  
+  # Server Components in the cluster:
+    1. kube-api server
+        apiserver.crt  : public key
+        apisever.key   : private key
+    2. etcd server
+        etcdserver.crt : public key
+        etcdserver.key : private key
+    3. kubelet server
+        kubelet.crt    : public key
+        kubelet.pem    : private key   
+
+  # Client Components in the cluster:
+    1. Admin through "kubectl" or "REST API" accessing the API Server.
+        admin.crt 
+        admin.key 
+    2. Scheduler accessing the API Server
+        scheduler.crt
+        scheduler.key
+    3. Kube Controller-Manager accessing the API Server
+        controller-manager.crt
+        controller-manager.key
+    4. Kube Proxy accessing the API Server
+        kube-proxy.crt
+        kube-proxy.key    
+
+   # Note:
+    kube-apiserver is the only component which talks to etcd server.
+    All the cluster components talk to apiserver.
+
+|----------------------------------------------------------------------------------------------------------------------------|
+# TLS in k8s
+    How to generate certificates ?
+    We can use tools like EASYRSA, OPENSSL and CFSSL
+
+
+  # Generate certificates for Certificate Authority
+    > openssl genrsa -out ca.key 2048
+        ca.key
+    > openssl req -new -key ca.key -subj "/CN=KUBERNETES-CA" -out ca.csr
+        ca.csr
+    > openssl x509 -req -in ca.csr -signkey ca.key -out ca.crt
+        ca.crt
+    
+    Here we generated the keys. Created certificate signing request and then self signed the certificate.
+
+  # Generate a client certificate for admin user
+    > openssl genrsa -out admin.key 2048
+        admin.key
+    > openssl req -new -key admin.key -subj "/CN=kube-admin/O=system:masters" -out admin.csr
+        admin.csr
+    > openssl x509 -req -in admin.csr -CA ca.crt -CAkey ca.key -out admin.crt
+        admin.crt  
+
+  # Note: 
+    1. Create the client certificates similarly for scheduler, controller-manager and kube-proxy.
+        apiserver-kubelet-client.crt, apiserver-kubelet-client.key,
+        apiserver-etcd-client.crt, apiserver-etcd-client.key,
+        kubelet-client.crt, kubelet-client.key
+    2. We need to prefix their name with system.
+    3. The public key of CA should be put in all the clients.
+
+   How to use these certificates ?
+    curl https://kube-apiserver:6443/api/v1/pods \
+        --key admin.key --cert admin.crt 
+        --cacart ca.crt 
+    or 
+    Put it under kube-config.yaml 
+
+  
+  # Generate certificates for kube-apiserver
+   kube-apiserver is commonly called as 
+    kubernetes
+    kubernetes.default
+    kubernetes.default.svc
+    kubernetes.default.svc.cluster.local
+
+    > openssl genrsa -out apiserver.key 2048 
+        apiserver.key
+    > openssl req -new apiserver.key -subj "/CN=kube-apiserver" -out apiserver.csr --conf openssl.cnf
+        apiserver.csr
+    > openssl x509 -req -in apiserver.csr -CA ca.crt -CAkey ca.key -out apiserver.crt
+        apiserver.crt      
+
+  # Note:
+    1. openssl.cnf file should have the list of names given above along with IP addresses under alt_names.
+    2. Similarly generate server certificates for kubelet in each node. Configure them in each node at kubelet-config.yaml
+        The client certificates generated for kubelet will have system:node:<node name>
+
+          
+  How to view the k8s certificates ?
+      Get to know how the cluster was setup (hardway/kubeadm) since each defines different ways to create and manage certificates.
+      hardway   : /etc/systemd/system/kube-apiserver.service
+      kubeadm   : /etc/kubernetes/manifests/kube-apiserver.yaml
+
+      1. Get the certificates details using above location.
+            cat /etc/kubernetes/manifests/kube-apiserver.yaml
+            - --tls-cert-file=/etc/kubernetes/pki/apiserver.crt
+      2. Decode the certificate details using openssl
+            openssl x509 -in /etc/kubernetes/pki/apiserver.crt -text -noout
+    
+  Where to check for logs ?                         
+    journalctl -u etcd.service -l       # if configured as services
+    kubectl logs etcd-master            # if configured using kubeadm
+    docker ps -a 
+    docker container logs <container id>
+
+|----------------------------------------------------------------------------------------------------------------------------|
+# TLS Certificates [Certificate Workflow and API]
+  https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/
+  CA is created by kubeadm and it is located on master servers.
+  
+  1. When a new user wants to gain access to cluster, user sends a request to admin asking to get his public key signed.
+  2. Admin creates a k8s object "CertificateSigningObject" and sends this request to Certificates API. 
+  3. This object will help to review and approve requests, share certs to users.
+
+  User:
+  > openssl genrsa -out jane.key 2048
+    jane.key
+  > openssl req -new -key jane.key -subj "/CN=jane" -out jane.csr
+    jane.csr
+
+  Admin:
+  1. Create an k8s object using jane-csr.yaml
+        apiVersion: certificates.k8s.io/v1
+        kind: CertificateSigningRequest
+        metadata:
+            name: jane
+        spec: 
+            groups:
+            - system:authenticated
+            signerName: kubernetes.io/kube-apiserver-client
+            usages:
+            - digital signature
+            - key encipherment
+            - server auth
+            request:
+                cat jane.csr | base64
+
+  2. kubectl get csr
+     kubectl certificate approve jane
+     kubectl get csr jane -o yaml
+
+
+  Who is responsible for CSR activities ?
+  Controller Manager is responsible for the CSR activities. It has CSR-APPROVING and CSR-SIGNING components.
+  cat /etc/kubernetes/manifests/kube-controller-manager.yaml
+    - --cluster-signing-cert-file=/etc/kubernetes/pki/ca.crt
+    - --cluster-signing-key-file=/etc/kubernetes/pki/ca.key
+
+|----------------------------------------------------------------------------------------------------------------------------|    
+# KubeConfig
+  Typically a user can use below curl request to get list of pods from API server.
+    curl https://kube-apiserver:6443/api/v1/pods \
+        --key admin.key --cert admin.crt 
+        --cacart ca.crt   
+
+  Or a user can use below command to get the same details
+    kubectl get pods \
+        --server my-kube-playground:6443 \
+        --client-key admin.key \
+        --client-certificate admin.crt \
+        --certificate-authority ca.crt
+        
+  Or these details can be passed inside a KubeConfig file. 
+  The file is located by default at $HOME/.kube/config. if file is in default location then we do not need to sepecify the same in command.
+    kubectl get pods --kubeconfig config
+
+
+  The kubeconfig file has 3 sections
+    - Clusters  : the clusters which we need to access
+        Development, Production and Google
+    - Users     : User groups who are going to access the clusters
+        Admin, Dev User and Prod User 
+    - Contexts  : Mapping users to clusters for accessing
+        Admin@Production
+        Dev@Google
+
+  How does kube control know which context to choose from ?
+    It picks it from current-context value from kubeconfig.
+
+
+  How to view current config/kubeconfig ?
+    kubectl config view
+
+  How to view custom kubeconfig file ?
+    kubectl config view --kubeconfig=my-custom-config
+
+  How to change the present context ?
+    kubectl config use-context prod-user@production
+    kubectl config -h
+
+  Can we provide certificate-authority-data filed in place of certificate-authority ?
+    Yes we can.
+    1. Convert the certificate to base64 and provide it under certificate-authority-data by removing certificate-authority filed.
+        cat ca.crt | base64
+    2. Want to get back the certificate then decode it 
+        echo "" | base64 --decode
+
+|----------------------------------------------------------------------------------------------------------------------------|
+# API Groups
+  Kubernetes APIs are groups into different types based on their purpose.
+    /metrics, /healthz, /version, /api, /apis, /logs
+
+  For cluster functionalities we need /api and /apis  API groups.
+  # Core group : /api
+    /api -> /v1 ->
+                    namespaces  pods        rc
+                    events      endpoints   nodes
+                    bindings    PV          PVC
+                    configmaps  secrets     services
+  
+  # Named group: /apis
+  These are more organized and going forward these would become standard.
+  They have API Groups -> Resources -> Verbs.
+  https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/
+
+  How to get all API groups and APIs ?
+  curl http://localhost:6443 -k
+  curl http://localhost:6443/apis -k | grep "name"
+
+|----------------------------------------------------------------------------------------------------------------------------|
+# Authorization 
+    After Authentication of an user what he can do inside a cluster is defined by Authorization.
+
+    Cluster is created and maintained by the Admins.
+    Developers can come and host their applications but should not be allowed to change underlying infra like deleting a node.
+    Bots can access applications hosted in the cluster but should not have access to cluster components likes pods and nodes.
+
+    Authorization Mechanisms:
+    Node based 
+    Attribute based [ABAC]
+    Role based      [RBAC]
+    Webhook
+    AlwaysAllow
+    AlwaysDeny
+
+    Node Authorizer:
+        kubelet is able to communicate to api-server with this Authorization to update on node, pod, events status.
+
+    Attribute based [ABAC]:
+        dev-user can view, create and delete PODs. Similarly we can provide details on how a user or group of users can access what resources in cluster.
+
+    Role based [RBAC]:
+        Create a role for develper users or security users.
+        Associate the users to this perticular role.
+
+    Webhook:
+        A 3rd party handling the access of the cluster. This party would be called when a user tries to access the cluster.
+        Ex: Open Policy Agent
+
+
+    Where do we set this Authorization mechanism?
+    It is set at kube apiserver under --authorization-mode=Node,RBAC,Webhook
+
+
+|----------------------------------------------------------------------------------------------------------------------------|    
+# Role Based Access Control
+    https://kubernetes.io/docs/reference/access-authn-authz/rbac/
+
+    How to check if we have access to resources ?
+        kubectl auth can-i create deployments
+        kubectl auth can-i delete nodes
+
+        kubectl auth can-i create deployments --as dev-user
+        kubectl auth can-i delete nodes --as dev-user
+
+        kubectl auth can-i create pods --as dev-user --namespace test
+
+|----------------------------------------------------------------------------------------------------------------------------|  
+# Cluster Roles and role bindings
+  The resources which are to be accessed at cluster level and not at namespace level are called as Cluster Roles.
+
+  Namespace:
+    pods, replicasets, jobs, deployments, services, secrets, roles, rolebindings, configmaps, PVC
+  Cluster:
+    nodes, PV, clusterroles, clusterrolebindings, CertificateSigningRequest, namespaces
+
+  How to get list of namespaced and non namespaced object ?
+    kubectl api-resources --namespaced=true
+    kubectl api-resources --namespaced=false
+
+  Note:
+  1. roles and rolebindings are used to authorize a user at namespace level.
+  2. cluster roles and cluster role bindings are used to authorize a resource at cluster level.
+
+
+|----------------------------------------------------------------------------------------------------------------------------|  
+# Image Security:
+    We Usually specify an image inside pod spec as,
+      image: nginx
+  
+    But behind the scenes it is,
+      image: <Registry>/<User Account>/<Image Repository>
+      image: docker.io/nginx/nginx
+
+  How docker enables us to get images from private repository ?
+    docker login private-registry.io
+    docker run private-registry.io/apps/internal-app
+
+  How kubernetes enables us to get images from private repository ?  
+    1. Create an secret 
+    2. Use this secret inside k8s config file
+
+
+    kubectl create secret docker-registry regcred \
+      --docker-server=private-registry.io \
+      --docker-username=registry-user \
+      --docker-password=registry-password \
+      --docker-email=registry-user@org.com
+
+
+    spec:
+        containers:
+        - name: nginx
+          image: private-registry.io/apps/internal-app
+        imagePullSecrets:
+        - name: regcred
+
+|----------------------------------------------------------------------------------------------------------------------------|         
+# Security Context
+
+
+  Write an example for imbibing security context for a pod.
+    spec:
+      securityContext:
+        runAsUser: 1000
+    containers:
+      - name: ubuntu
+        image: ubuntu
+        command: ["sleep", "3600"] 
+        securityContext:
+          runAsUser: 1000
+          capabilities:
+          add: ["MAC_ADMIN"]
+
+  Note:
+    Capabilities are only supported at the container level and not at the POD level.
+
+|----------------------------------------------------------------------------------------------------------------------------|         
+# Network Policies:
+  By default all the pods communicate with each other without any explicite rules configured.
+
+  Network Policy is another object in the k8s cluster with gives the capabilities to configure only certain traffic to flow to and from the pods.
+
+
+  Does all networking solutions support Network Policies ?
+    No. As of the date flannel does not support.
+    kube-router, Calico, Romana, Weave-net support.
+

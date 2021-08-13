@@ -1,0 +1,45 @@
+# developer-role.yaml 
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: developer
+  namespace: test
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]  
+    verbs: ["list", "get", "create", "update", "delete"]
+    #resourceNames: ["blue", "orange"]    if we want to restrict access to specific pod resources
+  - apiGroups:  [""]
+    resources: ["ConfigMap"]
+    verbs: ["create"]
+
+
+# To create a role    
+# kubectl create -f developer-role.yaml    
+
+
+---
+# devuser-developer-binding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: devuser-developer-binding
+  namespace: test
+subjects:
+  - kind: User
+    name: dev-user
+    apiGroup: rbac.authorization.k8s.io  
+roleRef:
+  kind: Role
+  name: developer
+  apiGroup: rbac.authorization.k8s.io
+
+# To create a rolebinding
+# kubectl create -f devuser-developer-binding.yaml  
+
+# kubectl get roles
+# kubectl get rolebindings
+# kubectl describe role <role name>
+# kubectl describe rolebinding <role binding name>
+
+
